@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AdTONX - Earn TON</title>
+    
+    <!-- Telegram WebApp SDK -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    
+    <!-- Firebase SDK v9 -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    
+    <!-- Ad Networks -->
+    <script type="text/javascript" src="https://cdn.tgads.space/assets/js/adexium-widget.min.js"></script>
+    
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Loading Screen -->
+        <div id="loading-screen" class="loading-screen">
+            <div class="spinner"></div>
+            <p>Loading AdTONX...</p>
+        </div>
+
+        <!-- Main App Container -->
+        <div id="main-app" class="hidden">
+            <!-- Header -->
+            <header class="app-header">
+                <div class="logo">💎 AdTONX</div>
+                <div class="header-balance">
+                    <span class="balance-label">Balance:</span>
+                    <span class="balance-amount" id="header-balance">0.000</span>
+                    <span class="ton-symbol">TON</span>
+                </div>
+            </header>
+
+            <!-- Content Area -->
+            <main id="content-area" class="content-area">
+                <!-- Dynamic content will be loaded here -->
+            </main>
+
+            <!-- Bottom Navigation -->
+            <nav class="bottom-nav">
+                <button class="nav-item active" data-page="home">
+                    <span class="nav-icon">🏠</span>
+                    <span class="nav-label">Home</span>
+                </button>
+                <button class="nav-item" data-page="ads">
+                    <span class="nav-icon">📺</span>
+                    <span class="nav-label">Ads</span>
+                </button>
+                <button class="nav-item" data-page="tasks">
+                    <span class="nav-icon">✅</span>
+                    <span class="nav-label">Tasks</span>
+                </button>
+                <button class="nav-item" data-page="wallet">
+                    <span class="nav-icon">💰</span>
+                    <span class="nav-label">Wallet</span>
+                </button>
+                <button class="nav-item" data-page="profile">
+                    <span class="nav-icon">👤</span>
+                    <span class="nav-label">Profile</span>
+                </button>
+            </nav>
+        </div>
+
+        <!-- Ad Watching Modal -->
+        <div id="ad-modal" class="modal hidden">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Watch Ad</h3>
+                    <button class="close-modal" id="close-ad-modal">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div id="ad-container"></div>
+                    <div class="ad-timer">
+                        <div class="timer-circle">
+                            <svg class="timer-svg" viewBox="0 0 100 100">
+                                <circle class="timer-bg" cx="50" cy="50" r="45"></circle>
+                                <circle class="timer-progress" cx="50" cy="50" r="45" id="timer-circle"></circle>
+                            </svg>
+                            <div class="timer-text" id="timer-text">10</div>
+                        </div>
+                        <p class="timer-label">Watching ad...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Success Modal -->
+        <div id="success-modal" class="modal hidden">
+            <div class="modal-content success-content">
+                <div class="success-icon">✨</div>
+                <h2 class="success-title" id="success-title">Success!</h2>
+                <p class="success-message" id="success-message"></p>
+                <div class="success-amount" id="success-amount"></div>
+                <button class="btn btn-primary" id="close-success-modal">Continue</button>
+            </div>
+        </div>
+
+        <!-- Task Verification Modal -->
+        <div id="task-modal" class="modal hidden">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 id="task-modal-title">Complete Task</h3>
+                    <button class="close-modal" id="close-task-modal">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p id="task-modal-description"></p>
+                    <a id="task-modal-link" class="btn btn-primary" target="_blank">Open Link</a>
+                    <button id="task-verify-btn" class="btn btn-secondary">Verify Completion</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Withdrawal Modal -->
+        <div id="withdraw-modal" class="modal hidden">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Withdraw TON</h3>
+                    <button class="close-modal" id="close-withdraw-modal">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>TON Wallet Address</label>
+                        <input type="text" id="withdraw-wallet" placeholder="UQCPPw01FTldjEuWeeup...">
+                    </div>
+                    <div class="form-group">
+                        <label>Amount (TON)</label>
+                        <input type="number" id="withdraw-amount" placeholder="2.0" min="2" step="0.1">
+                        <small class="form-hint">Minimum: 2 TON</small>
+                    </div>
+                    <div class="withdrawal-summary">
+                        <div class="summary-row">
+                            <span>Amount:</span>
+                            <span id="withdraw-gross">0 TON</span>
+                        </div>
+                        <div class="summary-row">
+                            <span>Fee (20%):</span>
+                            <span id="withdraw-fee">0 TON</span>
+                        </div>
+                        <div class="summary-row total">
+                            <span>You'll receive:</span>
+                            <span id="withdraw-net">0 TON</span>
+                        </div>
+                    </div>
+                    <button id="confirm-withdraw-btn" class="btn btn-primary">Confirm Withdrawal</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="config.js"></script>
+    <script src="firebase-init.js"></script>
+    <script src="utils.js"></script>
+    <script src="ad-networks.js"></script>
+    <script src="pages.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
