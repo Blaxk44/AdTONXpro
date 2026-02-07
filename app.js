@@ -1,51 +1,184 @@
-// Main Application
+// Main Application with Advanced Loading System
 
-// Current page
+let currentUser = null;
 let currentPage = 'home';
+let platformSettings = null;
+
+// Loading System
+const LoadingManager = {
+    steps: [
+        { name: 'init', label: 'Initializing...', progress: 0 },
+        { name: 'telegram', label: 'Connecting to Telegram...', progress: 20 },
+        { name: 'database', label: 'Loading database...', progress: 40 },
+        { name: 'user', label: 'Getting user data...', progress: 60 },
+        { name: 'settings', label: 'Loading settings...', progress: 80 },
+        { name: 'complete', label: 'Ready!', progress: 100 }
+    ],
+    
+    currentStep: 0,
+    
+    updateProgress(stepName, status = '') {
+        const step = this.steps.find(s => s.name === stepName);
+        if (!step) return;
+        
+        const progressBar = document.getElementById('loading-progress');
+        const loadingText = document.getElementById('loading-text');
+        const loadingStatus = document.getElementById('loading-status');
+        
+        if (progressBar) {
+            progressBar.style.width = step.progress + '%';
+        }
+        
+        if (loadingText) {
+            loadingText.textContent = step.label;
+        }
+        
+        if (loadingStatus && status) {
+            loadingStatus.textContent = status;
+        }
+        
+        this.currentStep = this.steps.indexOf(step);
+    },
+    
+    setConnected() {
+        const statusDot = document.getElementById('status-dot');
+        const connectionStatus = document.getElementById('connection-status');
+        
+        if (statusDot) {
+            statusDot.classList.add('connected');
+        }
+        
+        if (connectionStatus) {
+            connectionStatus.textContent = 'Connected to TON Network';
+        }
+    },
+    
+    async hide() {
+        return new Promise((resolve) => {
+            const loadingScreen = document.getElementById('loading-screen');
+            if (loadingScreen) {
+                loadingScreen.classList.add('fade-out');
+                setTimeout(() => {
+                    loadingScreen.style.display = 'none';
+                    resolve();
+                }, 500);
+            } else {
+                resolve();
+            }
+        });
+    }
+};
 
 // Initialize Application
 async function initApp() {
     try {
-        showLoading(true);
+        // Step 1: Initialize
+        LoadingManager.updateProgress('init', 'Starting AdTONX...');
+        await sleep(500);
         
-        // Initialize Firebase Auth
-        await initFirebaseAuth();
-        
-        // Get Telegram user data
+        // Step 2: Get Telegram user data
+        LoadingManager.updateProgress('telegram', 'Authenticating with Telegram...');
         const telegramUser = getTelegramUser();
         console.log('Telegram user:', telegramUser);
+        await sleep(500);
         
-        // Get or create user in database
+        // Step 3: Connect to database
+        LoadingManager.updateProgress('database', 'Establishing secure connection...');
+        LoadingManager.setConnected();
+        await sleep(500);
+        
+        // Step 4: Get or create user
+        LoadingManager.updateProgress('user', 'Retrieving your account...');
         currentUser = await DatabaseService.getOrCreateUser(telegramUser);
         console.log('Current user:', currentUser);
+        await sleep(500);
         
-        // Load platform settings
-        userSettings = await DatabaseService.getPlatformSettings();
+        // Step 5: Load platform settings
+        LoadingManager.updateProgress('settings', 'Syncing latest settings...');
+        platformSettings = await DatabaseService.getPlatformSettings();
         console.log('Platform settings loaded');
+        await sleep(500);
+        
+        // Step 6: Complete
+        LoadingManager.updateProgress('complete', 'Launching application...');
+        await sleep(300);
+        
+        // Hide loading screen
+        await LoadingManager.hide();
+        
+        // Show main app
+        document.getElementById('app').classList.remove('hidden');
         
         // Update balance display
         updateBalanceDisplay(currentUser.balance);
         
-        // Hide loading and show app
-        showLoading(false);
-        document.getElementById('main-app').classList.remove('hidden');
-        
         // Load home page
         navigateTo('home');
         
-        // Set up navigation
+        // Setup navigation
         setupNavigation();
         
-        // Set up modal handlers
+        // Setup modals
         setupModals();
         
-        console.log('App initialized successfully');
+        // Setup Telegram WebApp
+        setupTelegramWebApp();
+        
+        console.log('✅ App initialized successfully');
         
     } catch (error) {
-        console.error('App initialization error:', error);
-        showLoading(false);
-        alertDialog('Failed to initialize app. Please refresh and try again.');
+        console.error('❌ App initialization error:', error);
+        handleInitError(error);
     }
+}
+
+// Handle initialization errors
+function handleInitError(error) {
+    const loadingScreen = document.getElementById('loading-screen');
+    if (!loadingScreen) return;
+    
+    // Show error in loading screen
+    loadingScreen.innerHTML = `
+        <div class="blockchain-container">
+            <div class="error-icon" style="font-size: 80px; margin-bottom: 20px;">⚠️</div>
+            <h2 style="color: #ff4444; margin-bottom: 10px;">Connection Error</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 30px;">
+                ${error.message || ERROR_MESSAGES.UNKNOWN_ERROR}
+            </p>
+            <button class="btn btn-primary" onclick="location.reload()">
+                Retry
+            </button>
+            <p style="color: var(--text-muted); font-size: 12px; margin-top: 20px;">
+                If the problem persists, contact support
+            </p>
+        </div>
+    `;
+}
+
+// Setup Telegram WebApp
+function setupTelegramWebApp() {
+    if (!isTelegramWebApp()) return;
+    
+    const webApp = window.Telegram.WebApp;
+    
+    // Expand to fullscreen
+    webApp.expand();
+    
+    // Set header color
+    webApp.setHeaderColor('#0a0e27');
+    
+    // Set background color
+    webApp.setBackgroundColor('#0a0e27');
+    
+    // Enable closing confirmation
+    webApp.enableClosingConfirmation();
+    
+    // Setup back button
+    webApp.BackButton.onClick(() => {
+        if (currentPage !== 'home') {
+            navigateTo('home');
+        }
+    });
 }
 
 // Setup Navigation
@@ -61,379 +194,174 @@ function setupNavigation() {
 }
 
 // Navigate to page
-function navigateTo(page) {
-    // Update current page
-    currentPage = page;
-    
-    // Update active nav item
-    document.querySelectorAll('.nav-item').forEach(item => {
-        item.classList.toggle('active', item.dataset.page === page);
-    });
-    
-    // Load page content
-    const contentArea = document.getElementById('content-area');
-    
-    if (Pages[page]) {
-        contentArea.innerHTML = Pages[page]();
+async function navigateTo(page) {
+    try {
+        // Update current page
+        currentPage = page;
         
-        // Load dynamic content
-        loadPageData(page);
-    } else {
-        contentArea.innerHTML = '<div class="card"><p>Page not found</p></div>';
+        // Update active nav item
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.classList.toggle('active', item.dataset.page === page);
+        });
+        
+        // Show/hide Telegram back button
+        if (isTelegramWebApp()) {
+            const webApp = window.Telegram.WebApp;
+            if (page === 'home') {
+                webApp.BackButton.hide();
+            } else {
+                webApp.BackButton.show();
+            }
+        }
+        
+        // Load page content
+        const contentArea = document.getElementById('content-area');
+        
+        if (Pages[page]) {
+            // Show loading state
+            contentArea.innerHTML = '<div class="loading-state" style="text-align: center; padding: 60px 20px;"><div class="spinner" style="margin: 0 auto 20px;"></div><p>Loading...</p></div>';
+            
+            // Load page content
+            const content = await Pages[page]();
+            contentArea.innerHTML = content;
+            
+            // Load page-specific data
+            await loadPageData(page);
+        } else {
+            contentArea.innerHTML = '<div class="card"><p>Page not found</p></div>';
+        }
+        
+        // Scroll to top
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        
+    } catch (error) {
+        console.error('Navigation error:', error);
+        showToast('Failed to load page', 'error');
     }
-    
-    // Scroll to top
-    window.scrollTo(0, 0);
 }
 
 // Load page-specific data
 async function loadPageData(page) {
-    switch (page) {
-        case 'ads':
-            await loadLeaderboardPreview();
-            break;
-        
-        case 'tasks':
-            await loadTasks();
-            break;
-        
-        case 'wallet':
-            await loadTransactions();
-            break;
-        
-        case 'leaderboard':
-            await loadFullLeaderboard();
-            break;
-    }
-}
-
-// Load leaderboard preview (top 5)
-async function loadLeaderboardPreview() {
     try {
-        const leaderboard = await DatabaseService.getLeaderboard(5);
-        const container = document.getElementById('leaderboard-preview');
-        
-        if (leaderboard.length === 0) {
-            container.innerHTML = '<p style="text-align: center; color: var(--text-secondary); padding: 20px;">No data yet</p>';
-            return;
-        }
-        
-        let html = '<div class="leaderboard-list">';
-        
-        leaderboard.forEach(user => {
-            html += `
-                <div class="leaderboard-item">
-                    <div class="leaderboard-rank ${getRankClass(user.rank)}">${user.rank}</div>
-                    <div class="leaderboard-user">
-                        <div class="leaderboard-name">${user.first_name || user.username}</div>
-                        <div class="leaderboard-ads">${formatNumber(user.ads_watched)} ads</div>
-                    </div>
-                    <div class="leaderboard-reward">${formatTON(user.total_earned)} TON</div>
-                </div>
-            `;
-        });
-        
-        html += '</div>';
-        container.innerHTML = html;
-        
-    } catch (error) {
-        console.error('Error loading leaderboard preview:', error);
-    }
-}
-
-// Load full leaderboard
-async function loadFullLeaderboard() {
-    try {
-        const leaderboard = await DatabaseService.getLeaderboard(100);
-        const container = document.getElementById('leaderboard-list');
-        
-        if (leaderboard.length === 0) {
-            container.innerHTML = '<p style="text-align: center; color: var(--text-secondary); padding: 40px;">No data yet</p>';
-            return;
-        }
-        
-        let html = '<div class="leaderboard-list">';
-        
-        leaderboard.forEach(user => {
-            html += `
-                <div class="leaderboard-item">
-                    <div class="leaderboard-rank ${getRankClass(user.rank)}">${user.rank}</div>
-                    <div class="leaderboard-user">
-                        <div class="leaderboard-name">${user.first_name || user.username}</div>
-                        <div class="leaderboard-ads">${formatNumber(user.ads_watched)} ads watched</div>
-                    </div>
-                    <div class="leaderboard-reward">${formatTON(user.total_earned)} TON</div>
-                </div>
-            `;
-        });
-        
-        html += '</div>';
-        container.innerHTML = html;
-        
-    } catch (error) {
-        console.error('Error loading full leaderboard:', error);
-        handleError(error, 'Failed to load leaderboard');
-    }
-}
-
-// Get rank class for styling
-function getRankClass(rank) {
-    if (rank === 1) return 'gold';
-    if (rank === 2) return 'silver';
-    if (rank === 3) return 'bronze';
-    return '';
-}
-
-// Load tasks
-async function loadTasks() {
-    try {
-        const tasks = await DatabaseService.getTasks();
-        const container = document.getElementById('tasks-list');
-        
-        if (tasks.length === 0) {
-            container.innerHTML = `
-                <div style="text-align: center; padding: 40px 20px;">
-                    <p style="color: var(--text-secondary); margin-bottom: 15px;">No tasks available right now</p>
-                    <p style="font-size: 14px; color: var(--text-secondary);">Check back later for new tasks!</p>
-                </div>
-            `;
-            return;
-        }
-        
-        let html = '<div class="task-list">';
-        
-        for (const task of tasks) {
-            // Check if user completed this task
-            const isCompleted = await isTaskCompleted(task.id);
+        switch (page) {
+            case 'ads':
+                await loadLeaderboardPreview();
+                break;
             
-            html += `
-                <div class="task-item">
-                    <div class="task-info">
-                        <div class="task-title">${task.title}</div>
-                        <div class="task-reward">+${formatTON(task.reward)} TON</div>
-                        ${task.type === 'paid' ? `
-                            <div class="task-status">
-                                <span class="badge badge-info">User Task</span>
-                                ${task.clicks_done}/${task.clicks_required} clicks
-                            </div>
-                        ` : ''}
-                        ${isCompleted ? `
-                            <div class="task-status">
-                                <span class="badge badge-success">Completed</span>
-                            </div>
-                        ` : ''}
-                    </div>
-                    <button class="task-complete-btn ${isCompleted ? 'completed' : ''}" 
-                        onclick="openTask('${task.id}')"
-                        ${isCompleted ? 'disabled' : ''}>
-                        ${isCompleted ? '✓' : 'Start'}
-                    </button>
-                </div>
-            `;
-        }
-        
-        html += '</div>';
-        container.innerHTML = html;
-        
-    } catch (error) {
-        console.error('Error loading tasks:', error);
-        handleError(error, 'Failed to load tasks');
-    }
-}
-
-// Check if task is completed
-async function isTaskCompleted(taskId) {
-    try {
-        const snapshot = await db.collection('task_completions')
-            .where('user_id', '==', currentUser.telegram_id)
-            .where('task_id', '==', taskId)
-            .get();
-        
-        return !snapshot.empty;
-    } catch (error) {
-        console.error('Error checking task completion:', error);
-        return false;
-    }
-}
-
-// Open task
-async function openTask(taskId) {
-    try {
-        const taskDoc = await db.collection('tasks').doc(taskId).get();
-        
-        if (!taskDoc.exists) {
-            showToast('Task not found', 'error');
-            return;
-        }
-        
-        const task = taskDoc.data();
-        
-        // Show task modal
-        const modal = document.getElementById('task-modal');
-        document.getElementById('task-modal-title').textContent = task.title;
-        document.getElementById('task-modal-description').textContent = task.description || 'Complete this task to earn rewards';
-        
-        const link = document.getElementById('task-modal-link');
-        link.href = task.link;
-        link.textContent = 'Open ' + (task.type === 'official' ? 'Channel' : 'Link');
-        
-        const verifyBtn = document.getElementById('task-verify-btn');
-        verifyBtn.onclick = async () => {
-            await completeTask(taskId);
-        };
-        
-        modal.classList.remove('hidden');
-        
-    } catch (error) {
-        console.error('Error opening task:', error);
-        handleError(error, 'Failed to open task');
-    }
-}
-
-// Complete task
-async function completeTask(taskId) {
-    try {
-        const confirmed = await confirmDialog('Have you completed this task?');
-        if (!confirmed) return;
-        
-        const result = await DatabaseService.completeTask(currentUser.telegram_id, taskId);
-        
-        if (result.success) {
-            // Update user data
-            currentUser.balance += result.reward;
-            currentUser.tasks_completed += 1;
-            updateBalanceDisplay(currentUser.balance);
+            case 'tasks':
+                await loadTasks();
+                break;
             
-            // Close task modal
-            document.getElementById('task-modal').classList.add('hidden');
+            case 'wallet':
+                await loadTransactions();
+                break;
             
-            // Show success
-            showSuccessMessage('Task Completed!', `You earned ${formatTON(result.reward)} TON`);
-            
-            // Reload tasks
-            await loadTasks();
+            case 'leaderboard':
+                await loadFullLeaderboard();
+                break;
         }
-        
     } catch (error) {
-        console.error('Error completing task:', error);
-        handleError(error, error.message || 'Failed to complete task');
+        console.error('Error loading page data:', error);
     }
-}
-
-// Load transactions
-async function loadTransactions() {
-    try {
-        const transactions = await DatabaseService.getUserTransactions(currentUser.telegram_id, 20);
-        const container = document.getElementById('transactions-list');
-        
-        if (transactions.length === 0) {
-            container.innerHTML = `
-                <p style="text-align: center; color: var(--text-secondary); padding: 30px;">
-                    No transactions yet
-                </p>
-            `;
-            return;
-        }
-        
-        let html = '<div style="display: flex; flex-direction: column; gap: 10px;">';
-        
-        transactions.forEach(tx => {
-            const isPositive = tx.amount > 0;
-            const icon = getTransactionIcon(tx.type);
-            
-            html += `
-                <div style="
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    padding: 12px;
-                    background: var(--bg-color);
-                    border-radius: 8px;
-                ">
-                    <div>
-                        <div style="font-weight: 600; margin-bottom: 4px;">
-                            ${icon} ${tx.description}
-                        </div>
-                        <div style="font-size: 12px; color: var(--text-secondary);">
-                            ${formatDate(tx.timestamp)}
-                        </div>
-                    </div>
-                    <div style="
-                        font-weight: bold;
-                        color: ${isPositive ? 'var(--success-color)' : 'var(--danger-color)'};
-                    ">
-                        ${isPositive ? '+' : ''}${formatTON(tx.amount)} TON
-                    </div>
-                </div>
-            `;
-        });
-        
-        html += '</div>';
-        container.innerHTML = html;
-        
-    } catch (error) {
-        console.error('Error loading transactions:', error);
-        handleError(error, 'Failed to load transactions');
-    }
-}
-
-// Get transaction icon
-function getTransactionIcon(type) {
-    const icons = {
-        'ad_watched': '📺',
-        'task': '✅',
-        'referral': '🤝',
-        'referral_commission': '💰',
-        'withdraw': '📤',
-        'deposit': '📥'
-    };
-    
-    return icons[type] || '💎';
 }
 
 // Setup modals
 function setupModals() {
-    // Close ad modal
-    document.getElementById('close-ad-modal').addEventListener('click', () => {
-        document.getElementById('ad-modal').classList.add('hidden');
-    });
+    // Withdrawal amount change handler
+    const withdrawAmount = document.getElementById('withdraw-amount');
+    if (withdrawAmount) {
+        withdrawAmount.addEventListener('input', updateWithdrawSummary);
+    }
     
-    // Close success modal
-    document.getElementById('close-success-modal').addEventListener('click', () => {
-        document.getElementById('success-modal').classList.add('hidden');
-    });
-    
-    // Close task modal
-    document.getElementById('close-task-modal').addEventListener('click', () => {
-        document.getElementById('task-modal').classList.add('hidden');
-    });
-    
-    // Close withdraw modal
-    document.getElementById('close-withdraw-modal').addEventListener('click', () => {
-        document.getElementById('withdraw-modal').classList.add('hidden');
-    });
-    
-    // Withdraw amount input handler
-    document.getElementById('withdraw-amount').addEventListener('input', updateWithdrawSummary);
+    // Confirm withdrawal button
+    const confirmWithdrawBtn = document.getElementById('confirm-withdraw-btn');
+    if (confirmWithdrawBtn) {
+        confirmWithdrawBtn.addEventListener('click', handleWithdrawal);
+    }
 }
 
-// Show withdraw modal
-function showWithdrawModal() {
-    if (!currentUser.wallet_address) {
-        alertDialog('Please set your TON wallet address first in the Profile section');
-        return;
+// Modal close functions
+function closeAdModal() {
+    document.getElementById('ad-modal').classList.add('hidden');
+}
+
+function closeSuccessModal() {
+    document.getElementById('success-modal').classList.add('hidden');
+}
+
+function closeTaskModal() {
+    document.getElementById('task-modal').classList.add('hidden');
+}
+
+function closeWithdrawModal() {
+    document.getElementById('withdraw-modal').classList.add('hidden');
+}
+
+// Update balance display
+function updateBalanceDisplay(balance) {
+    const balanceElements = document.querySelectorAll('#header-balance, .balance-main');
+    balanceElements.forEach(el => {
+        if (el) {
+            animateNumber(el, parseFloat(el.textContent) || 0, balance);
+        }
+    });
+}
+
+// Sleep helper
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// Withdrawal handling
+async function handleWithdrawal() {
+    try {
+        const amount = parseFloat(document.getElementById('withdraw-amount').value);
+        const wallet = document.getElementById('withdraw-wallet').value;
+        
+        if (!isValidTONAddress(wallet)) {
+            showToast(ERROR_MESSAGES.INVALID_WALLET, 'error');
+            return;
+        }
+        
+        if (amount < platformSettings.minWithdrawal) {
+            showToast(ERROR_MESSAGES.WITHDRAWAL_MIN, 'error');
+            return;
+        }
+        
+        if (amount > currentUser.balance) {
+            showToast(ERROR_MESSAGES.INSUFFICIENT_BALANCE, 'error');
+            return;
+        }
+        
+        const confirmed = await confirmAction(`Withdraw ${formatTON(amount)} TON? You'll receive ${formatTON(amount * (1 - platformSettings.withdrawalFee))} TON after ${platformSettings.withdrawalFee * 100}% fee.`);
+        
+        if (!confirmed) return;
+        
+        showLoading(true);
+        
+        const result = await DatabaseService.createWithdrawalRequest(
+            currentUser.telegram_id,
+            amount,
+            wallet
+        );
+        
+        // Update local balance
+        currentUser.balance -= amount;
+        updateBalanceDisplay(currentUser.balance);
+        
+        showLoading(false);
+        closeWithdrawModal();
+        
+        showSuccessMessage(
+            'Withdrawal Requested!',
+            `Your withdrawal is being processed. You'll receive ${formatTON(result.net_amount)} TON.`
+        );
+        
+    } catch (error) {
+        showLoading(false);
+        console.error('Withdrawal error:', error);
+        showToast(error.message || ERROR_MESSAGES.UNKNOWN_ERROR, 'error');
     }
-    
-    if (currentUser.balance < PLATFORM_SETTINGS.minWithdrawal) {
-        alertDialog(`Minimum withdrawal is ${PLATFORM_SETTINGS.minWithdrawal} TON. Your balance: ${formatTON(currentUser.balance)} TON`);
-        return;
-    }
-    
-    document.getElementById('withdraw-wallet').value = currentUser.wallet_address;
-    document.getElementById('withdraw-amount').value = '';
-    updateWithdrawSummary();
-    
-    document.getElementById('withdraw-modal').classList.remove('hidden');
 }
 
 // Update withdrawal summary
@@ -445,103 +373,25 @@ function updateWithdrawSummary() {
     document.getElementById('withdraw-fee').textContent = formatTON(calculation.fee) + ' TON';
     document.getElementById('withdraw-net').textContent = formatTON(calculation.net) + ' TON';
     
-    // Enable/disable confirm button
     const btn = document.getElementById('confirm-withdraw-btn');
-    btn.disabled = amount < PLATFORM_SETTINGS.minWithdrawal || amount > currentUser.balance;
-}
-
-// Confirm withdrawal
-document.getElementById('confirm-withdraw-btn').addEventListener('click', async () => {
-    try {
-        const amount = parseFloat(document.getElementById('withdraw-amount').value);
-        const wallet = document.getElementById('withdraw-wallet').value;
-        
-        if (!isValidTONAddress(wallet)) {
-            showToast('Invalid TON wallet address', 'error');
-            return;
-        }
-        
-        if (amount < PLATFORM_SETTINGS.minWithdrawal) {
-            showToast(`Minimum withdrawal is ${PLATFORM_SETTINGS.minWithdrawal} TON`, 'error');
-            return;
-        }
-        
-        if (amount > currentUser.balance) {
-            showToast('Insufficient balance', 'error');
-            return;
-        }
-        
-        const confirmed = await confirmDialog(`Withdraw ${formatTON(amount)} TON? You'll receive ${formatTON(amount * (1 - PLATFORM_SETTINGS.withdrawalFee))} TON after ${PLATFORM_SETTINGS.withdrawalFee * 100}% fee.`);
-        
-        if (!confirmed) return;
-        
-        showLoading(true);
-        
-        const withdrawal = await DatabaseService.createWithdrawalRequest(
-            currentUser.telegram_id,
-            amount,
-            wallet
-        );
-        
-        // Update local balance
-        currentUser.balance -= amount;
-        updateBalanceDisplay(currentUser.balance);
-        
-        showLoading(false);
-        document.getElementById('withdraw-modal').classList.add('hidden');
-        
-        showSuccessMessage(
-            'Withdrawal Requested!',
-            `Your withdrawal of ${formatTON(amount)} TON is being processed. You'll receive ${formatTON(withdrawal.net_amount)} TON after fees.`
-        );
-        
-    } catch (error) {
-        showLoading(false);
-        console.error('Withdrawal error:', error);
-        handleError(error, error.message || 'Failed to process withdrawal');
-    }
-});
-
-// Update wallet address
-async function updateWalletAddress() {
-    const address = prompt('Enter your TON wallet address:');
-    
-    if (!address) return;
-    
-    if (!isValidTONAddress(address)) {
-        showToast('Invalid TON wallet address', 'error');
-        return;
-    }
-    
-    try {
-        await db.collection('users').doc(currentUser.telegram_id).update({
-            wallet_address: address
-        });
-        
-        currentUser.wallet_address = address;
-        showToast('Wallet address updated!', 'success');
-        
-        // Reload page
-        navigateTo('wallet');
-        
-    } catch (error) {
-        console.error('Update wallet error:', error);
-        handleError(error, 'Failed to update wallet address');
-    }
+    btn.disabled = amount < platformSettings.minWithdrawal || amount > currentUser.balance;
 }
 
 // Show success message
-function showSuccessMessage(title, message) {
+function showSuccessMessage(title, message, amount = null) {
     const modal = document.getElementById('success-modal');
     document.getElementById('success-title').textContent = title;
     document.getElementById('success-message').textContent = message;
-    document.getElementById('success-amount').textContent = '';
+    
+    const amountEl = document.getElementById('success-amount');
+    if (amount) {
+        amountEl.textContent = amount;
+        amountEl.style.display = 'block';
+    } else {
+        amountEl.style.display = 'none';
+    }
     
     modal.classList.remove('hidden');
-    
-    setTimeout(() => {
-        modal.classList.add('hidden');
-    }, 3000);
 }
 
 // Initialize app when DOM is ready
@@ -550,3 +400,10 @@ if (document.readyState === 'loading') {
 } else {
     initApp();
 }
+
+// Prevent context menu on long press (mobile)
+document.addEventListener('contextmenu', (e) => {
+    if (isTelegramWebApp()) {
+        e.preventDefault();
+    }
+});
