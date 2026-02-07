@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AdTONX Admin Panel</title>
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    
+    <link rel="stylesheet" href="admin-styles.css">
+</head>
+<body>
+    <!-- Login Screen -->
+    <div id="login-screen" class="login-screen">
+        <div class="login-container">
+            <div class="login-header">
+                <h1>💎 AdTONX</h1>
+                <p>Admin Panel</p>
+            </div>
+            <form id="login-form" class="login-form">
+                <div class="form-group">
+                    <label>Username</label>
+                    <input type="text" id="login-username" placeholder="Enter username" required>
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" id="login-password" placeholder="Enter password" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Login</button>
+                <div id="login-error" class="error-message hidden"></div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Admin Dashboard -->
+    <div id="admin-dashboard" class="hidden">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2>💎 AdTONX</h2>
+                <p>Admin Panel</p>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <a href="#" class="nav-link active" data-page="dashboard">
+                    <span class="nav-icon">📊</span>
+                    <span>Dashboard</span>
+                </a>
+                <a href="#" class="nav-link" data-page="users">
+                    <span class="nav-icon">👥</span>
+                    <span>Users</span>
+                </a>
+                <a href="#" class="nav-link" data-page="ads">
+                    <span class="nav-icon">📺</span>
+                    <span>Ads Management</span>
+                </a>
+                <a href="#" class="nav-link" data-page="tasks">
+                    <span class="nav-icon">✅</span>
+                    <span>Tasks</span>
+                </a>
+                <a href="#" class="nav-link" data-page="withdrawals">
+                    <span class="nav-icon">💰</span>
+                    <span>Withdrawals</span>
+                </a>
+                <a href="#" class="nav-link" data-page="transactions">
+                    <span class="nav-icon">📜</span>
+                    <span>Transactions</span>
+                </a>
+                <a href="#" class="nav-link" data-page="settings">
+                    <span class="nav-icon">⚙️</span>
+                    <span>Settings</span>
+                </a>
+            </nav>
+            
+            <div class="sidebar-footer">
+                <button class="btn btn-secondary" onclick="adminLogout()">Logout</button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Header -->
+            <header class="content-header">
+                <h1 id="page-title">Dashboard</h1>
+                <div class="header-actions">
+                    <div class="admin-info">
+                        <span>Admin: <strong id="admin-name">TRILLIONAIRE</strong></span>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Content Area -->
+            <div id="content-area" class="content-area">
+                <!-- Dynamic content will be loaded here -->
+            </div>
+        </main>
+    </div>
+
+    <!-- Task Creation Modal -->
+    <div id="task-modal" class="modal hidden">
+        <div class="modal-overlay" onclick="closeTaskModal()"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Create New Task</h3>
+                <button class="close-modal" onclick="closeTaskModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="task-form">
+                    <div class="form-group">
+                        <label>Task Title</label>
+                        <input type="text" id="task-title" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Description</label>
+                        <textarea id="task-description" rows="3"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Task Type</label>
+                        <select id="task-type" required>
+                            <option value="official">Official</option>
+                            <option value="partner">Partner</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Link (URL)</label>
+                        <input type="url" id="task-link" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Reward (TON)</label>
+                        <input type="number" id="task-reward" step="0.001" min="0" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Clicks Required</label>
+                        <input type="number" id="task-clicks" min="1" value="100" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Create Task</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- User Detail Modal -->
+    <div id="user-modal" class="modal hidden">
+        <div class="modal-overlay" onclick="closeUserModal()"></div>
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3>User Details</h3>
+                <button class="close-modal" onclick="closeUserModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="user-detail-content">
+                <!-- User details will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <script src="admin-config.js"></script>
+    <script src="admin-utils.js"></script>
+    <script src="admin-pages.js"></script>
+    <script src="admin.js"></script>
+</body>
+</html>
