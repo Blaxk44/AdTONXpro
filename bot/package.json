@@ -1,0 +1,21 @@
+{
+  "name": "adtonx-telegram-bot",
+  "version": "1.0.0",
+  "description": "AdTONX Telegram Bot - TON Earning Platform",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js"
+  },
+  "keywords": ["telegram", "bot", "ton", "cryptocurrency", "earning"],
+  "author": "AdTONX",
+  "license": "MIT",
+  "dependencies": {
+    "telegraf": "^4.12.2",
+    "firebase-admin": "^11.10.1",
+    "dotenv": "^16.0.3"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.22"
+  }
+}
