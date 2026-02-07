@@ -2,11 +2,11 @@ FROM node:18-alpine
 
 WORKDIR /app
 
-COPY bot/package*.json ./bot/
+COPY backend/package*.json ./backend/
 RUN cd backend && npm install --production
 
-COPY backend ./bot
+COPY backend ./backend
 
 EXPOSE 3000
 
-CMD ["node", "bot/index.js"]
+CMD ["node", "backend/index.js"]
