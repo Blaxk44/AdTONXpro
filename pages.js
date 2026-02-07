@@ -1,8 +1,12 @@
-// Page Content Manager
+// Page Content for AdTONX
 
 const Pages = {
     // Home Page
-    home: function() {
+    home: async function() {
+        if (!currentUser) return '<div class="card"><p>Loading...</p></div>';
+        
+        const tierInfo = getTierInfo(currentUser.ads_watched);
+        
         return `
             <div class="fade-in">
                 <!-- Balance Card -->
@@ -18,7 +22,7 @@ const Pages = {
                         </div>
                         <div class="earning-item">
                             <span class="value">${formatTON(currentUser.total_earned)}</span>
-                            <span class="label">Total Earned</span>
+                            <span class="label">Total</span>
                         </div>
                     </div>
                 </div>
@@ -26,7 +30,7 @@ const Pages = {
                 <!-- Quick Actions -->
                 <div class="card">
                     <button class="btn btn-primary" onclick="navigateTo('ads')">
-                        📺 Watch Ads & Earn
+                        ⛏️ Start Mining TON
                     </button>
                     <button class="btn btn-secondary" onclick="navigateTo('tasks')">
                         ✅ Complete Tasks
@@ -36,277 +40,188 @@ const Pages = {
                 <!-- Stats -->
                 <div class="stats-grid">
                     <div class="stat-item">
+                        <span class="stat-icon">📺</span>
                         <span class="stat-value">${formatNumber(currentUser.ads_watched)}</span>
-                        <span class="stat-label">Ads Watched</span>
+                        <span class="stat-label">Ads Mined</span>
                     </div>
                     <div class="stat-item">
+                        <span class="stat-icon">✅</span>
                         <span class="stat-value">${formatNumber(currentUser.tasks_completed)}</span>
                         <span class="stat-label">Tasks Done</span>
                     </div>
                     <div class="stat-item">
+                        <span class="stat-icon">🤝</span>
                         <span class="stat-value">${formatNumber(currentUser.referral_count)}</span>
                         <span class="stat-label">Referrals</span>
                     </div>
                     <div class="stat-item">
-                        <span class="stat-value">${formatTON(currentUser.referral_earnings)}</span>
-                        <span class="stat-label">Ref. Earned</span>
+                        <span class="stat-icon">⚡</span>
+                        <span class="stat-value">${tierInfo.name}</span>
+                        <span class="stat-label">Current Tier</span>
                     </div>
                 </div>
                 
-                <!-- Tutorial -->
-                <div class="card">
+                <!-- Tier Info -->
+                <div class="card" style="border-left: 4px solid ${tierInfo.color};">
                     <div class="card-header">
-                        <h3 class="card-title">💡 How to Earn</h3>
+                        <h3 class="card-title">🏆 ${tierInfo.name} Tier</h3>
+                        <span class="badge badge-success">${formatTON(tierInfo.reward)} TON/ad</span>
                     </div>
-                    <div class="tutorial-content">
-                        <p style="margin-bottom: 15px; color: var(--text-secondary); line-height: 1.6;">
-                            <strong>1. Watch Ads:</strong> Earn TON by watching ads from our networks. 
-                            The more you watch, the higher your rewards!<br><br>
-                            <strong>2. Complete Tasks:</strong> Join channels, follow accounts, and complete 
-                            simple tasks for rewards.<br><br>
-                            <strong>3. Refer Friends:</strong> Get 10% commission from your referrals' 
-                            lifetime earnings plus bonus!<br><br>
-                            <strong>4. Withdraw:</strong> Cash out your earnings to your TON wallet 
-                            (minimum 2 TON).
-                        </p>
-                    </div>
-                </div>
-                
-                <!-- Latest Announcements -->
-                <div class="card">
-                    <div class="card-header">
-                        <h3 class="card-title">📢 Announcements</h3>
-                    </div>
-                    <div class="announcement-content">
-                        <p style="color: var(--text-secondary); line-height: 1.6;">
-                            🎉 <strong>Welcome to AdTONX!</strong><br>
-                            Start earning TON cryptocurrency by watching ads and completing tasks. 
-                            Daily limit: ${PLATFORM_SETTINGS.dailyAdLimit} ads. 
-                            Referral commission: ${PLATFORM_SETTINGS.referralCommission * 100}%. 
-                            Withdrawal fee: ${PLATFORM_SETTINGS.withdrawalFee * 100}%.
-                        </p>
-                    </div>
+                    <p style="color: var(--text-secondary); margin-bottom: 10px;">
+                        ${tierInfo.remaining > 0 
+                            ? `Mine ${tierInfo.remaining} more ads to reach next tier and unlock ${formatTON(tierInfo.nextBonus)} TON bonus!` 
+                            : 'Maximum tier achieved! You\'re earning the highest rewards.'}
+                    </p>
+                    ${tierInfo.remaining > 0 ? `
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: ${((platformSettings.tier1.limit - tierInfo.remaining) / platformSettings.tier1.limit) * 100}%"></div>
+                        </div>
+                    ` : ''}
                 </div>
             </div>
         `;
     },
     
-    // Ads Page
-    ads: function() {
-        const dailyProgress = (currentUser.daily_ad_count / PLATFORM_SETTINGS.dailyAdLimit) * 100;
-        const cooldownRemaining = currentUser.last_ad_watched ? 
-            getRemainingCooldown(currentUser.last_ad_watched) : 0;
+    // Ads/Earn Page
+    ads: async function() {
+        if (!currentUser) return '<div class="card"><p>Loading...</p></div>';
         
-        const currentReward = getAdReward(currentUser.ads_watched);
+        const settings = platformSettings || PLATFORM_SETTINGS;
+        const dailyProgress = (currentUser.daily_ad_count / settings.dailyAdLimit) * 100;
+        const cooldown = currentUser.last_ad_watched ? getRemainingCooldown(currentUser.last_ad_watched) : 0;
+        const reward = getAdReward(currentUser.ads_watched);
         
         return `
             <div class="fade-in">
                 <!-- Daily Progress -->
                 <div class="card">
                     <div class="card-header">
-                        <h3 class="card-title">📊 Daily Progress</h3>
-                        <span class="badge badge-info">
-                            ${currentUser.daily_ad_count} / ${PLATFORM_SETTINGS.dailyAdLimit}
-                        </span>
+                        <h3 class="card-title">⛏️ Mining Progress</h3>
+                        <span class="badge badge-info">${currentUser.daily_ad_count} / ${settings.dailyAdLimit}</span>
                     </div>
                     <div class="progress-bar">
                         <div class="progress-fill" style="width: ${dailyProgress}%"></div>
                     </div>
-                    <p style="margin-top: 10px; font-size: 14px; color: var(--text-secondary);">
-                        ${PLATFORM_SETTINGS.dailyAdLimit - currentUser.daily_ad_count} ads remaining today
+                    <p style="margin-top: 10px; font-size: 13px; color: var(--text-secondary);">
+                        ${settings.dailyAdLimit - currentUser.daily_ad_count} mining opportunities remaining today
                     </p>
                 </div>
                 
-                <!-- Tier Info -->
-                <div class="card">
-                    <div class="card-header">
-                        <h3 class="card-title">🎯 Current Tier</h3>
-                    </div>
-                    <div class="tier-info">
-                        <p style="margin-bottom: 15px; color: var(--text-secondary);">
-                            <strong>Your Reward:</strong> 
-                            <span style="color: var(--success-color); font-size: 18px; font-weight: bold;">
-                                ${formatTON(currentReward)} TON
-                            </span> per ad
+                ${cooldown > 0 ? `
+                    <div class="card" style="background: rgba(255, 170, 0, 0.1); border-left: 4px solid var(--warning);">
+                        <strong>⏳ Mining Cooldown</strong>
+                        <p style="color: var(--text-secondary); margin-top: 8px;">
+                            Next mining available in ${cooldown} seconds
                         </p>
-                        
-                        ${this.getTierDisplay()}
                     </div>
-                </div>
+                ` : ''}
                 
                 <!-- Ad Networks -->
                 <div class="card">
                     <div class="card-header">
-                        <h3 class="card-title">📺 Watch Ads</h3>
+                        <h3 class="card-title">💎 Mining Networks</h3>
                     </div>
                     
-                    ${cooldownRemaining > 0 ? `
-                        <div class="cooldown-notice" style="
-                            background: rgba(255, 152, 0, 0.1);
-                            border-left: 4px solid var(--warning-color);
-                            padding: 12px;
-                            margin-bottom: 15px;
-                            border-radius: 4px;
-                        ">
-                            <strong>⏳ Cooldown:</strong> Wait ${cooldownRemaining} seconds before next ad
-                        </div>
-                    ` : ''}
-                    
-                    <div class="ad-network-list">
-                        ${this.getAdNetworkItem('monetag', 'Monetag', currentUser.ads_monetag, cooldownRemaining)}
-                        ${this.getAdNetworkItem('adexium', 'Adexium', currentUser.ads_adexium, cooldownRemaining)}
-                        ${this.getAdNetworkItem('adsgram', 'Adsgram', currentUser.ads_adsgram, cooldownRemaining)}
+                    <div style="display: flex; flex-direction: column; gap: 12px;">
+                        ${this.getAdNetworkCard('monetag', 'Monetag', currentUser.ads_monetag, reward, cooldown > 0)}
+                        ${this.getAdNetworkCard('adexium', 'Adexium', currentUser.ads_adexium, reward, cooldown > 0)}
+                        ${this.getAdNetworkCard('adsgram', 'Adsgram', currentUser.ads_adsgram, reward, cooldown > 0)}
                     </div>
-                </div>
-                
-                <!-- Leaderboard Preview -->
-                <div class="card">
-                    <div class="card-header">
-                        <h3 class="card-title">🏆 Top Earners</h3>
-                        <button class="btn btn-secondary" onclick="navigateTo('leaderboard')" 
-                            style="padding: 6px 12px; font-size: 14px; width: auto; margin: 0;">
-                            View All
-                        </button>
-                    </div>
-                    <p style="font-size: 14px; color: var(--text-secondary); margin-bottom: 15px;">
-                        Weekly pool: ${PLATFORM_SETTINGS.leaderboardPool} TON
-                    </p>
-                    <div id="leaderboard-preview">Loading...</div>
                 </div>
             </div>
         `;
     },
     
-    getTierDisplay: function() {
-        const adsWatched = currentUser.ads_watched;
-        
-        if (adsWatched < PLATFORM_SETTINGS.tier1.limit) {
-            const remaining = PLATFORM_SETTINGS.tier1.limit - adsWatched;
-            return `
-                <div class="tier-card" style="background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 15px; border-radius: 8px;">
-                    <strong>Tier 1 - Bronze</strong><br>
-                    <small>Watch ${remaining} more ads to unlock Tier 2 and get ${formatTON(PLATFORM_SETTINGS.tier1.bonus)} TON bonus!</small>
-                </div>
-            `;
-        } else if (adsWatched < PLATFORM_SETTINGS.tier2.limit) {
-            const remaining = PLATFORM_SETTINGS.tier2.limit - adsWatched;
-            return `
-                <div class="tier-card" style="background: linear-gradient(135deg, #f093fb, #f5576c); color: white; padding: 15px; border-radius: 8px;">
-                    <strong>Tier 2 - Silver</strong><br>
-                    <small>Watch ${remaining} more ads to unlock Tier 3 and get ${formatTON(PLATFORM_SETTINGS.tier2.bonus)} TON bonus!</small>
-                </div>
-            `;
-        } else {
-            return `
-                <div class="tier-card" style="background: linear-gradient(135deg, #ffd700, #ffed4e); color: #333; padding: 15px; border-radius: 8px;">
-                    <strong>Tier 3 - Gold 🏆</strong><br>
-                    <small>Maximum tier! You're earning the highest rewards per ad.</small>
-                </div>
-            `;
-        }
-    },
-    
-    getAdNetworkItem: function(network, name, watched, cooldown) {
-        const reward = getAdReward(currentUser.ads_watched);
-        const disabled = cooldown > 0 || currentUser.daily_ad_count >= PLATFORM_SETTINGS.dailyAdLimit;
-        
+    getAdNetworkCard(network, name, count, reward, disabled) {
         return `
-            <div class="ad-network-item">
-                <div class="ad-network-info">
-                    <div class="ad-network-name">${name}</div>
-                    <div class="ad-network-reward">+${formatTON(reward)} TON per ad</div>
-                    <div class="ad-network-progress">Watched today: ${watched}</div>
+            <div style="
+                background: var(--bg-card-hover);
+                padding: 16px;
+                border-radius: 12px;
+                border: 1px solid rgba(0, 212, 255, 0.1);
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            ">
+                <div>
+                    <div style="font-size: 16px; font-weight: 600; margin-bottom: 4px;">${name}</div>
+                    <div style="font-size: 13px; color: var(--success);">+${formatTON(reward)} TON</div>
+                    <div style="font-size: 11px; color: var(--text-secondary); margin-top: 4px;">
+                        Mined today: ${count}
+                    </div>
                 </div>
-                <button class="ad-watch-btn" 
+                <button 
+                    class="btn btn-primary" 
                     onclick="AdWatchManager.watchAd('${network}')"
-                    ${disabled ? 'disabled' : ''}>
-                    Watch
+                    ${disabled ? 'disabled' : ''}
+                    style="width: auto; padding: 10px 20px; margin: 0;">
+                    ⛏️ Mine
                 </button>
             </div>
         `;
     },
     
     // Tasks Page
-    tasks: function() {
+    tasks: async function() {
         return `
             <div class="fade-in">
                 <div class="card">
                     <div class="card-header">
                         <h3 class="card-title">✅ Available Tasks</h3>
                     </div>
-                    <p style="font-size: 14px; color: var(--text-secondary); margin-bottom: 15px;">
-                        Complete tasks to earn extra TON rewards
-                    </p>
                     <div id="tasks-list">
                         <div style="text-align: center; padding: 40px 20px;">
-                            <div class="spinner" style="margin: 0 auto 15px; width: 40px; height: 40px;"></div>
+                            <div class="spinner" style="margin: 0 auto 15px;"></div>
                             <p style="color: var(--text-secondary);">Loading tasks...</p>
                         </div>
                     </div>
-                </div>
-                
-                <!-- Create Paid Task -->
-                <div class="card">
-                    <div class="card-header">
-                        <h3 class="card-title">💼 Create Your Own Task</h3>
-                    </div>
-                    <p style="font-size: 14px; color: var(--text-secondary); margin-bottom: 15px;">
-                        Promote your channel, website, or project!<br>
-                        <strong>Price:</strong> 1 TON = 250 clicks
-                    </p>
-                    <button class="btn btn-primary" onclick="showCreateTaskModal()">
-                        Create Task
-                    </button>
                 </div>
             </div>
         `;
     },
     
     // Wallet Page
-    wallet: function() {
+    wallet: async function() {
+        if (!currentUser) return '<div class="card"><p>Loading...</p></div>';
+        
         return `
             <div class="fade-in">
-                <!-- Balance Overview -->
+                <!-- Balance Card -->
                 <div class="balance-card card">
                     <div class="balance-title">Available Balance</div>
                     <div class="balance-main">${formatTON(currentUser.balance)}</div>
                     <div class="balance-subtitle">TON</div>
                 </div>
                 
-                <!-- Actions -->
+                <!-- Withdraw Button -->
                 <div class="card">
-                    <div class="card-header">
-                        <h3 class="card-title">💰 Actions</h3>
-                    </div>
-                    
                     <button class="btn btn-primary" onclick="showWithdrawModal()">
-                        Withdraw TON
+                        💸 Withdraw TON
                     </button>
-                    <p style="font-size: 12px; color: var(--text-secondary); margin-top: 10px; text-align: center;">
-                        Minimum: ${PLATFORM_SETTINGS.minWithdrawal} TON | Fee: ${PLATFORM_SETTINGS.withdrawalFee * 100}%
+                    <p style="font-size: 11px; color: var(--text-secondary); margin-top: 10px; text-align: center;">
+                        Min: ${platformSettings?.minWithdrawal || 2} TON | Fee: ${(platformSettings?.withdrawalFee || 0.2) * 100}%
                     </p>
                 </div>
                 
                 <!-- Wallet Info -->
                 <div class="card">
                     <div class="card-header">
-                        <h3 class="card-title">📋 Wallet Info</h3>
+                        <h3 class="card-title">💰 Wallet Info</h3>
                     </div>
-                    <div class="profile-info">
-                        <div class="info-row">
-                            <span class="info-label">TON Address</span>
-                            <span class="info-value">${currentUser.wallet_address || 'Not set'}</span>
+                    <div style="display: flex; flex-direction: column; gap: 12px;">
+                        <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid rgba(0, 212, 255, 0.1);">
+                            <span style="color: var(--text-secondary); font-size: 13px;">Address</span>
+                            <span style="font-size: 13px; font-weight: 600;">${currentUser.wallet_address || 'Not set'}</span>
                         </div>
-                        <div class="info-row">
-                            <span class="info-label">Total Earned</span>
-                            <span class="info-value">${formatTON(currentUser.total_earned)} TON</span>
+                        <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid rgba(0, 212, 255, 0.1);">
+                            <span style="color: var(--text-secondary); font-size: 13px;">Total Earned</span>
+                            <span style="font-size: 13px; font-weight: 600; color: var(--success);">${formatTON(currentUser.total_earned)} TON</span>
                         </div>
-                        <div class="info-row">
-                            <span class="info-label">Today's Earnings</span>
-                            <span class="info-value">${formatTON(currentUser.today_earnings)} TON</span>
+                        <div style="display: flex; justify-content: space-between; padding: 8px 0;">
+                            <span style="color: var(--text-secondary); font-size: 13px;">Today</span>
+                            <span style="font-size: 13px; font-weight: 600; color: var(--secondary);">${formatTON(currentUser.today_earnings)} TON</span>
                         </div>
                     </div>
-                    
                     ${!currentUser.wallet_address ? `
                         <button class="btn btn-secondary" onclick="updateWalletAddress()">
                             Set Wallet Address
@@ -314,7 +229,7 @@ const Pages = {
                     ` : ''}
                 </div>
                 
-                <!-- Transaction History -->
+                <!-- Transactions -->
                 <div class="card">
                     <div class="card-header">
                         <h3 class="card-title">📜 Recent Transactions</h3>
@@ -322,7 +237,6 @@ const Pages = {
                     <div id="transactions-list">
                         <div style="text-align: center; padding: 20px;">
                             <div class="spinner" style="margin: 0 auto 15px; width: 30px; height: 30px;"></div>
-                            <p style="color: var(--text-secondary); font-size: 14px;">Loading...</p>
                         </div>
                     </div>
                 </div>
@@ -331,7 +245,9 @@ const Pages = {
     },
     
     // Profile Page
-    profile: function() {
+    profile: async function() {
+        if (!currentUser) return '<div class="card"><p>Loading...</p></div>';
+        
         const referralLink = generateReferralLink(currentUser.telegram_id);
         
         return `
@@ -341,114 +257,46 @@ const Pages = {
                     <div class="card-header">
                         <h3 class="card-title">👤 Profile</h3>
                     </div>
-                    <div class="profile-info">
-                        <div class="info-row">
-                            <span class="info-label">Name</span>
-                            <span class="info-value">${currentUser.first_name} ${currentUser.last_name}</span>
+                    <div style="display: flex; flex-direction: column; gap: 10px;">
+                        <div style="display: flex; justify-content: space-between; padding: 8px 0;">
+                            <span style="color: var(--text-secondary); font-size: 13px;">Name</span>
+                            <span style="font-size: 13px; font-weight: 600;">${currentUser.first_name} ${currentUser.last_name}</span>
                         </div>
-                        <div class="info-row">
-                            <span class="info-label">Username</span>
-                            <span class="info-value">@${currentUser.username || 'N/A'}</span>
+                        <div style="display: flex; justify-content: space-between; padding: 8px 0;">
+                            <span style="color: var(--text-secondary); font-size: 13px;">Username</span>
+                            <span style="font-size: 13px; font-weight: 600;">@${currentUser.username || 'N/A'}</span>
                         </div>
-                        <div class="info-row">
-                            <span class="info-label">Telegram ID</span>
-                            <span class="info-value">${currentUser.telegram_id}</span>
-                        </div>
-                        <div class="info-row">
-                            <span class="info-label">Member Since</span>
-                            <span class="info-value">${formatDate(currentUser.created_at)}</span>
-                        </div>
-                        <div class="info-row">
-                            <span class="info-label">Status</span>
-                            <span class="info-value">
-                                <span class="badge badge-success">${currentUser.status}</span>
-                            </span>
+                        <div style="display: flex; justify-content: space-between; padding: 8px 0;">
+                            <span style="color: var(--text-secondary); font-size: 13px;">Member Since</span>
+                            <span style="font-size: 13px; font-weight: 600;">${formatDate(currentUser.created_at)}</span>
                         </div>
                     </div>
                 </div>
                 
                 <!-- Referral Card -->
-                <div class="referral-card">
-                    <h3 style="margin-bottom: 10px;">🤝 Invite Friends</h3>
-                    <p style="font-size: 14px; margin-bottom: 15px; opacity: 0.9;">
-                        Earn ${PLATFORM_SETTINGS.referralCommission * 100}% commission + 
-                        ${formatTON(PLATFORM_SETTINGS.referralBonus)} TON bonus per referral
+                <div class="card" style="background: linear-gradient(135deg, #667eea, #764ba2);">
+                    <h3 style="margin-bottom: 10px; color: white;">🤝 Invite Friends</h3>
+                    <p style="font-size: 13px; margin-bottom: 15px; color: rgba(255,255,255,0.9);">
+                        Earn ${(platformSettings?.referralCommission || 0.1) * 100}% commission + 
+                        ${formatTON(platformSettings?.referralBonus || 0.005)} TON bonus per referral
                     </p>
                     
-                    <div class="referral-link">${referralLink}</div>
+                    <div style="background: rgba(255,255,255,0.2); padding: 12px; border-radius: 8px; margin: 15px 0; word-break: break-all; font-size: 12px; color: white;">
+                        ${referralLink}
+                    </div>
                     
-                    <button class="copy-link-btn" onclick="copyToClipboard('${referralLink}')">
+                    <button class="btn" style="background: white; color: #667eea;" onclick="copyToClipboard('${referralLink}')">
                         📋 Copy Referral Link
                     </button>
                     
-                    <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.2);">
-                        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                            <span>Total Referrals:</span>
-                            <strong>${formatNumber(currentUser.referral_count)}</strong>
+                    <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.2); display: flex; justify-content: space-between; color: white;">
+                        <div>
+                            <div style="font-size: 11px; opacity: 0.8;">Referrals</div>
+                            <div style="font-size: 20px; font-weight: 800;">${formatNumber(currentUser.referral_count)}</div>
                         </div>
-                        <div style="display: flex; justify-content: space-between;">
-                            <span>Referral Earnings:</span>
-                            <strong>${formatTON(currentUser.referral_earnings)} TON</strong>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Statistics -->
-                <div class="card">
-                    <div class="card-header">
-                        <h3 class="card-title">📊 Statistics</h3>
-                    </div>
-                    <div class="profile-info">
-                        <div class="info-row">
-                            <span class="info-label">Total Earned</span>
-                            <span class="info-value">${formatTON(currentUser.total_earned)} TON</span>
-                        </div>
-                        <div class="info-row">
-                            <span class="info-label">Current Balance</span>
-                            <span class="info-value">${formatTON(currentUser.balance)} TON</span>
-                        </div>
-                        <div class="info-row">
-                            <span class="info-label">Ads Watched</span>
-                            <span class="info-value">${formatNumber(currentUser.ads_watched)}</span>
-                        </div>
-                        <div class="info-row">
-                            <span class="info-label">Tasks Completed</span>
-                            <span class="info-value">${formatNumber(currentUser.tasks_completed)}</span>
-                        </div>
-                        <div class="info-row">
-                            <span class="info-label">Monetag Ads</span>
-                            <span class="info-value">${formatNumber(currentUser.ads_monetag)}</span>
-                        </div>
-                        <div class="info-row">
-                            <span class="info-label">Adexium Ads</span>
-                            <span class="info-value">${formatNumber(currentUser.ads_adexium)}</span>
-                        </div>
-                        <div class="info-row">
-                            <span class="info-label">Adsgram Ads</span>
-                            <span class="info-value">${formatNumber(currentUser.ads_adsgram)}</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-    },
-    
-    // Leaderboard Page
-    leaderboard: function() {
-        return `
-            <div class="fade-in">
-                <div class="card">
-                    <div class="card-header">
-                        <h3 class="card-title">🏆 Top 100 Earners</h3>
-                    </div>
-                    <p style="font-size: 14px; color: var(--text-secondary); margin-bottom: 15px;">
-                        Weekly pool: <strong>${PLATFORM_SETTINGS.leaderboardPool} TON</strong><br>
-                        Top 10: ${PLATFORM_SETTINGS.leaderboardTop10} TON | Next 90: ${PLATFORM_SETTINGS.leaderboardNext90} TON
-                    </p>
-                    <div id="leaderboard-list">
-                        <div style="text-align: center; padding: 40px 20px;">
-                            <div class="spinner" style="margin: 0 auto 15px; width: 40px; height: 40px;"></div>
-                            <p style="color: var(--text-secondary);">Loading leaderboard...</p>
+                        <div style="text-align: right;">
+                            <div style="font-size: 11px; opacity: 0.8;">Earned</div>
+                            <div style="font-size: 20px; font-weight: 800;">${formatTON(currentUser.referral_earnings)} TON</div>
                         </div>
                     </div>
                 </div>
@@ -456,3 +304,103 @@ const Pages = {
         `;
     }
 };
+
+// Helper functions
+async function loadTasks() {
+    try {
+        const tasks = await DatabaseService.getTasks();
+        const container = document.getElementById('tasks-list');
+        
+        if (!container) return;
+        
+        if (tasks.length === 0) {
+            container.innerHTML = `
+                <div style="text-align: center; padding: 40px 20px;">
+                    <p style="color: var(--text-secondary);">No tasks available</p>
+                </div>
+            `;
+            return;
+        }
+        
+        container.innerHTML = tasks.map(task => `
+            <div style="background: var(--bg-card-hover); padding: 16px; border-radius: 12px; margin-bottom: 12px; border: 1px solid rgba(0, 212, 255, 0.1);">
+                <div style="font-size: 16px; font-weight: 600; margin-bottom: 6px;">${task.title}</div>
+                <div style="font-size: 13px; color: var(--success); margin-bottom: 8px;">+${formatTON(task.reward)} TON</div>
+                <button class="btn btn-primary" style="width: 100%; margin: 0;">Start Task</button>
+            </div>
+        `).join('');
+    } catch (error) {
+        console.error('Load tasks error:', error);
+    }
+}
+
+async function loadTransactions() {
+    try {
+        const txs = await DatabaseService.getUserTransactions(currentUser.telegram_id, 10);
+        const container = document.getElementById('transactions-list');
+        
+        if (!container) return;
+        
+        if (txs.length === 0) {
+            container.innerHTML = `
+                <div style="text-align: center; padding: 30px 20px;">
+                    <p style="color: var(--text-secondary);">No transactions yet</p>
+                </div>
+            `;
+            return;
+        }
+        
+        container.innerHTML = txs.map(tx => `
+            <div style="display: flex; justify-content: space-between; padding: 12px; background: var(--bg-card-hover); border-radius: 8px; margin-bottom: 8px;">
+                <div>
+                    <div style="font-size: 14px; font-weight: 600; margin-bottom: 4px;">${tx.description}</div>
+                    <div style="font-size: 11px; color: var(--text-secondary);">${formatDate(tx.timestamp)}</div>
+                </div>
+                <div style="font-size: 16px; font-weight: 800; color: ${tx.amount > 0 ? 'var(--success)' : 'var(--danger)'};">
+                    ${tx.amount > 0 ? '+' : ''}${formatTON(tx.amount)}
+                </div>
+            </div>
+        `).join('');
+    } catch (error) {
+        console.error('Load transactions error:', error);
+    }
+}
+
+function showWithdrawModal() {
+    if (!currentUser.wallet_address) {
+        alertDialog('Please set your TON wallet address first');
+        return;
+    }
+    
+    const settings = platformSettings || PLATFORM_SETTINGS;
+    if (currentUser.balance < settings.minWithdrawal) {
+        alertDialog(`Minimum withdrawal is ${settings.minWithdrawal} TON`);
+        return;
+    }
+    
+    document.getElementById('withdraw-wallet').value = currentUser.wallet_address;
+    document.getElementById('withdraw-amount').value = '';
+    document.getElementById('withdraw-modal').classList.remove('hidden');
+}
+
+async function updateWalletAddress() {
+    const address = prompt('Enter your TON wallet address:');
+    if (!address) return;
+    
+    if (!isValidTONAddress(address)) {
+        showToast('Invalid TON wallet address', 'error');
+        return;
+    }
+    
+    try {
+        showLoading(true);
+        await DatabaseService.updateWalletAddress(currentUser.telegram_id, address);
+        currentUser.wallet_address = address;
+        showLoading(false);
+        showToast('Wallet address updated!', 'success');
+        navigateTo('wallet');
+    } catch (error) {
+        showLoading(false);
+        showToast('Failed to update wallet', 'error');
+    }
+}
