@@ -1,114 +1,18 @@
-const { Telegraf, Markup } = require('telegraf');
-const admin = require('firebase-admin');
+import express from "express";
+import TelegramBot from "node-telegram-bot-api";
 
-// Initialize Firebase Admin
-const serviceAccount = require('./firebase-admin-key.json');
+const app = express();
+app.use(express.json());
 
-admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount),
-    databaseURL: "https://adtonx-bot-default-rtdb.firebaseio.com"
+const bot = new TelegramBot(process.env.BOT_TOKEN, { polling: true });
+
+bot.on("message", msg => {
+  bot.sendMessage(msg.chat.id, "AdTONX Bot is live 🚀");
 });
 
-const db = admin.firestore();
+app.get("/", (_, res) => res.send("Backend OK"));
 
-// Initialize bot
-const BOT_TOKEN = '8356591705:AAGUlcADugoR3u77EiAY67C8XSyZGU89PcU';
-const WEBAPP_URL = 'https://yourdomain.com'; // Replace with your actual domain
-
-const bot = new Telegraf(BOT_TOKEN);
-
-// Start command
-bot.start(async (ctx) => {
-    try {
-        const userId = ctx.from.id.toString();
-        const username = ctx.from.username || '';
-        const firstName = ctx.from.first_name || '';
-        const lastName = ctx.from.last_name || '';
-        
-        // Get referral parameter
-        const startParam = ctx.startPayload;
-        let referrerId = null;
-        
-        if (startParam && startParam.startsWith('ref_')) {
-            referrerId = startParam;
-        }
-        
-        // Check if user exists
-        const userRef = db.collection('users').doc(userId);
-        const userDoc = await userRef.get();
-        
-        if (!userDoc.exists) {
-            // Create new user
-            const newUser = {
-                telegram_id: userId,
-                username: username,
-                first_name: firstName,
-                last_name: lastName,
-                balance: 0,
-                total_earned: 0,
-                today_earnings: 0,
-                ads_watched: 0,
-                ads_monetag: 0,
-                ads_adexium: 0,
-                ads_adsgram: 0,
-                cpm_clicks: 0,
-                tasks_completed: 0,
-                referral_count: 0,
-                referral_earnings: 0,
-                wallet_address: '',
-                referred_by: referrerId,
-                status: 'active',
-                created_at: new Date().toISOString(),
-                last_active: new Date().toISOString(),
-                last_ad_watched: null,
-                daily_ad_count: 0,
-                last_reset_date: new Date().toISOString().split('T')[0]
-            };
-            
-            await userRef.set(newUser);
-            
-            // Process referral bonus
-            if (referrerId) {
-                const actualReferrerId = referrerId.replace('ref_', '');
-                const referrerRef = db.collection('users').doc(actualReferrerId);
-                const referrerDoc = await referrerRef.get();
-                
-                if (referrerDoc.exists) {
-                    const bonus = 0.005; // Referral bonus
-                    
-                    await referrerRef.update({
-                        referral_count: admin.firestore.FieldValue.increment(1),
-                        balance: admin.firestore.FieldValue.increment(bonus),
-                        total_earned: admin.firestore.FieldValue.increment(bonus)
-                    });
-                    
-                    // Send notification to referrer
-                    try {
-                        await ctx.telegram.sendMessage(
-                            actualReferrerId,
-                            `🎉 New referral! ${firstName} joined using your link. You earned ${bonus} TON bonus!`
-                        );
-                    } catch (e) {
-                        console.log('Could not notify referrer:', e.message);
-                    }
-                }
-            }
-            
-            // Welcome message for new users
-            await ctx.reply(
-                `🎉 Welcome to AdTONX, ${firstName}!\n\n` +
-                `💎 Start earning TON cryptocurrency by:\n` +
-                `• Watching ads (up to 3000/day)\n` +
-                `• Completing simple tasks\n` +
-                `• Referring friends (10% commission)\n\n` +
-                `🚀 Click the button below to start earning!`,
-                Markup.keyboard([
-                    [Markup.button.webApp('🚀 Open AdTONX', WEBAPP_URL)]
-                ]).resize()
-            );
-        } else {
-            // Existing user
-            await userRef.update({
+app.listen(3000, () => console.log("Server running"));            await userRef.update({
                 last_active: new Date().toISOString()
             });
             
